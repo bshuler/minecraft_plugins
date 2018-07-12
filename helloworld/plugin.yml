@@ -1,0 +1,9 @@
+name: HelloWorld
+version: 0.0.1
+description: This plugin is Hello World
+
+author: TheCritic
+
+ 
+main: helloworld.helloworld
+

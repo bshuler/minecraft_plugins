@@ -1,9 +1,6 @@
 name: HelloWorld
-version: 0.0.1
+version: ${version}
 description: This plugin is Hello World
-
 author: TheCritic
-
- 
 main: helloworld.helloworld
-
+api-version: "26.2"

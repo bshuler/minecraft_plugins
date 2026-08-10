@@ -86,3 +86,45 @@ implementations, not mod loaders:
   novel wrinkle worth a longer writeup. See `PLAN.md`.
 
 See `PLAN.md` for the full version matrix and per-version build status.
+
+## Tests
+
+```bash
+./gradlew test jacocoTestReport                                          # run tests + HTML/XML coverage report
+./gradlew clean test jacocoTestReport jacocoTestCoverageVerification check # full verification, matches CI expectations
+```
+
+- Report: `build/reports/jacoco/test/html/index.html` (human-readable),
+  `build/reports/jacoco/test/jacocoTestReport.xml` (machine-readable).
+- **Current status: 100% line coverage, zero exclusions**, enforced by
+  `jacocoTestCoverageVerification` (LINE minimum `1.00` — see
+  `build.gradle.kts`). 1 class analyzed: `helloworld.helloworld` (the whole
+  plugin). A BRANCH minimum `1.00` rule is present too, for parity with the
+  `domains.critical.groups`/`domains.critical.command.example` sibling bar,
+  but it passes trivially: `onEnable()`/`onDisable()` are entirely
+  branch-free (two straight-line log calls each, no `if`/`switch`/ternary/
+  `try`-`catch`), so JaCoCo emits **no BRANCH counter at all** for this
+  class — confirmed by inspecting `jacocoTestReport.xml` directly (no
+  `<counter type="BRANCH">` entry anywhere in it), not treated as
+  suspicious per the documented gotcha.
+- **MockBukkit is pinned to a fixed Paper build on the test classpath**,
+  independent of whatever `-PpaperApiVersion` the main source set targets:
+  `testImplementation("io.papermc.paper:paper-api:26.1.2.build.74-stable")`
+  and `testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v26.1.2:4.115.0")`
+  — same known-good pin as every sibling in this program (a newer
+  `paper-api` on the test classpath compiles fine but throws
+  `InternalDataLoadException` at test *runtime*, since MockBukkit ships a
+  registry-data snapshot captured from its own exact Paper build).
+- This plugin registers no commands (`plugin.yml` has no `commands:`
+  section, no ACF), so the ACF-command-map-invisibility gotcha other
+  siblings hit does not apply here — nothing to look up via
+  `server.getCommandMap()`.
+- The one test class, `helloworldTest`, attaches a capturing
+  `java.util.logging.Handler` to `ServerMock.getLogger()` **before**
+  `MockBukkit.load()` (which triggers `onEnable()` as a side effect) so it
+  can assert the actual logged message content and level, not just
+  "doesn't throw" — `onDisable()` is exercised the same way via a direct
+  call. No Mockito needed: the plugin has no fields to mock/spy and no
+  branches to reach via stubbing.
+- No bugs found while writing this suite — the plugin's only behavior (two
+  log lines) was already correct.

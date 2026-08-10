@@ -17,8 +17,10 @@ commit" in `git log`).
 
 - [x] `CLAUDE.md` written.
 - [x] `PLAN.md` written (this file).
-- [ ] Renamed local branch `master` → `main`, pushed, set as GitHub default
-      branch. `master` left intact (not deleted).
+- [x] Renamed local branch `master` → `main`, pushed. GitHub's branch-rename
+      API 422'd ("New branch already exists" — `main` was already pushed),
+      so the default branch was set directly via `gh repo edit
+      --default-branch main` instead. `master` left intact (not deleted).
 
 ### 2. Modernize (flatten + Gradle + plugin.yml)
 
@@ -74,28 +76,48 @@ by overriding the `paperApiVersion` Gradle property on the command line.
 
 | Target | api-version needed | Status |
 |---|---|---|
-| 26.2 (latest, `26.2.build.111-stable`) | `26.2` | pending |
-| 1.21.11 (1.21.x) | `1.21` | pending |
-| 1.20.1 | `1.20` | pending |
-| 1.19.4 | `1.19` | pending |
-| 1.18.2 | `1.18` | pending |
+| 26.2 (latest, `26.2.build.111-stable`) | `26.2` | **Built.** Default target (no property override). Jar: 5 files, verified non-empty. |
+| 1.21.11 (1.21.x) | `1.21` | **Built.** `-PpaperApiVersion=1.21.11-R0.1-SNAPSHOT`. Jar: 5 files, verified non-empty. |
+| 1.20.1 | `1.20` | **Built.** `-PpaperApiVersion=1.20.1-R0.1-SNAPSHOT`. Jar: 5 files, verified non-empty. |
+| 1.19.4 | `1.19` | **Built.** `-PpaperApiVersion=1.19.4-R0.1-SNAPSHOT`. Jar: 5 files, verified non-empty. |
+| 1.18.2 | `1.18` | **Built.** `-PpaperApiVersion=1.18.2-R0.1-SNAPSHOT`. Jar: 5 files, verified non-empty. |
 
-(Table updated to Built/jar-verified status below once the build pass runs.)
+All five jars are byte-identical in structure: `META-INF/MANIFEST.MF`,
+`helloworld/helloworld.class`, `plugin.yml` (5 entries counting the two
+directory entries). `plugin.yml` inside the jar confirmed to have
+`version: 0.0.1` (expanded from `${version}`) and `api-version: "26.2"` in
+every build — the `api-version` in `plugin.yml` is a fixed compatibility
+gate for the shipped target, not swapped per override build, matching how
+the `EpicFurnaces`/`Spigot-InvUnload` siblings treat milestone-4 builds.
+
+The latest (26.2) and 1.21.11/1.20.1/1.19.4 builds each print a
+`compileJava` deprecation note (`ChatColor` is soft-deprecated on modern
+Paper in favor of Adventure components); the 1.18.2 build does not, since
+`ChatColor` wasn't yet deprecated against that older API surface. Left
+as-is — `ChatColor` still compiles and works correctly on every target;
+migrating to Adventure components is a style choice, not a functional fix,
+and would be a gratuitous change to a one-class hello-world plugin.
 
 ### 5. Verification
 
-- [ ] `./gradlew build` for each target above.
-- [ ] `unzip -l build/libs/*.jar` for each — confirm the compiled
-      `helloworld/helloworld.class`, `plugin.yml`, and `META-INF/MANIFEST.MF`
-      are actually present (not just BUILD SUCCESSFUL).
+- [x] `./gradlew build` (and `clean build -PpaperApiVersion=...`) for each
+      target above — all five green.
+- [x] `unzip -l build/libs/*.jar` for each — confirmed the compiled
+      `helloworld/helloworld.class`, `plugin.yml` (with expanded version and
+      `api-version`), and `META-INF/MANIFEST.MF` are actually present (not
+      just BUILD SUCCESSFUL), same file count and sizes across all five
+      targets.
+- [x] Working tree left on a final `clean build` (default/26.2 target) so
+      `build/libs/HelloWorld-0.0.1.jar` reflects the shipped target,
+      `build/` untracked either way.
 
 ## Open problems / honest blockers
 
-None expected — this plugin has no dependencies, no NMS access, no
-deprecated-API calls beyond soft-deprecated `ChatColor` (still present and
-functional on current Paper), so it should compile and package unchanged
-against every target above. Recorded as a prediction here; see the
-Verification section above for the actual measured result.
+None. This plugin has no dependencies, no NMS access, and no deprecated-API
+calls beyond soft-deprecated `ChatColor` (still present and functional on
+every target built above) — it compiled and packaged unchanged against all
+five Paper API targets, confirming the prediction made before the build
+pass ran.
 
 ## Repository / git notes
 

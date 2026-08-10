@@ -63,7 +63,7 @@ out of scope.
 |---|---|---|
 | Paper | Supported (primary target) | Built and verified against this |
 | Purpur | Expected-compatible | Superset-API Paper fork; nothing here uses anything Purpur would break |
-| Folia | Expected-compatible | No scheduler/global-state usage at all (just two log lines in `onEnable`/`onDisable`) — the usual Folia region-threading concerns don't apply to this plugin |
+| Folia | **Supported** (`folia-supported: true` set, phase 2) | No scheduler/global-state usage at all (just two log lines in `onEnable`/`onDisable`) — the usual Folia region-threading concerns don't apply to this plugin; re-audited in phase 2, see milestone 7 below |
 | Spigot | Expected-compatible | Only stable Bukkit/Spigot API (`Bukkit.getLogger()`, `ChatColor`) is used |
 
 ### 4. Build + backward version walk
@@ -153,13 +153,31 @@ and would be a gratuitous change to a one-class hello-world plugin.
       jacocoTestCoverageVerification check`. See `CLAUDE.md` "Tests"
       section.
 
+### 7. Phase 2: Folia compatibility — DONE, positive verdict
+
+- [x] Static audit: zero scheduler calls (`BukkitScheduler`,
+      `getServer().getScheduler()`), zero event listeners (no commands
+      either — this plugin registers none), zero mutable shared state of
+      any kind (no fields at all, static or instance, beyond what
+      `JavaPlugin` itself provides). This was already the conclusion of the
+      phase-1 cross-platform assessment (milestone 3 above); phase 2
+      re-verified it against the actual (unchanged-in-this-respect) source
+      and found nothing to fix.
+- [x] **Verdict: `folia-supported: true` added to `plugin.yml`.** This is
+      the strongest possible Folia case in the program: a genuinely
+      stateless single-class plugin whose only runtime behavior is two log
+      lines. Re-verified the packaged jar contains the flag: `unzip -p
+      build/libs/HelloWorld-0.0.1.jar plugin.yml` shows `folia-supported:
+      true` in the packaged resource, not just the source file.
+
 ## Open problems / honest blockers
 
 None. This plugin has no dependencies, no NMS access, and no deprecated-API
 calls beyond soft-deprecated `ChatColor` (still present and functional on
 every target built above) — it compiled and packaged unchanged against all
 five Paper API targets, confirming the prediction made before the build
-pass ran. Phase 2 testing found no bugs and needed no coverage exclusions.
+pass ran. Phase 2 (tests + Folia) found no bugs and needed no coverage
+exclusions.
 
 ## Repository / git notes
 

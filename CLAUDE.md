@@ -74,6 +74,11 @@ implementations, not mod loaders:
 - **Paper** (primary target), and by API compatibility, **Purpur** and
   **Folia** — the plugin only touches `Bukkit.getLogger()` and `ChatColor`
   on `onEnable`/`onDisable`, nothing that any of these forks change.
+  **Folia: `folia-supported: true`** is set in `plugin.yml` (phase 2) — the
+  plugin has zero scheduler calls, zero listeners, and zero static/shared
+  mutable state of any kind, so there was nothing to fix to make it
+  region-thread-safe. Verified present in the packaged jar via `unzip -p
+  build/libs/HelloWorld-<version>.jar plugin.yml`.
 - **Spigot** — only stable Bukkit/Spigot API is used, no Paper-only calls.
 - **Fabric / NeoForge / Forge are not applicable.** Bukkit plugins run
   against a stable, server-implementation-maintained API; Fabric/Forge/

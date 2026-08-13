@@ -183,8 +183,10 @@ exclusions.
 
 - Default branch to become `main` (renamed from `master`). `master` left in
   place, not deleted.
-- Do not commit anything under `.github/workflows/` — the active `gh` token
-  for the `bshuler` account lacks the `workflow` scope.
+- `.github/workflows/` changes are pushable. The `bshuler` gh token gained the
+  `workflow` OAuth scope on 2026-08-13; earlier notes in this repo saying it
+  lacks that scope are obsolete. No CI YAML needs to be parked in a scratchpad
+  any more.
 - Commits authored as `Bert Shuler <BertShuler@proton.me>`, signed via the
   1Password SSH agent. If signing fails with no human at the keyboard, the
   prepared commit message goes to the session scratchpad instead of being

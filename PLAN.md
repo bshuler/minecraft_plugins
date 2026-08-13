@@ -203,3 +203,78 @@ Read from the JaCoCo XML report, not from whether the gate passes:
 
 A passing `check` means "no regression inside the analysed surface" — it does not
 mean the whole codebase is tested to that percentage.
+
+## Tier 2: headless Paper boot test (added 2026-08-13)
+
+MockBukkit fakes the plugin manager and never reads the packaged jar, so the
+unit suite cannot tell you whether *this jar* is a plugin a real server will
+load. `paperBootTest` does: it drops the built jar into a throwaway server's
+`plugins/`, boots a real headless Paper server, drives its console, and shuts
+it down.
+
+```bash
+./gradlew paperBootTest -PpaperServerJar=/path/to/paper-26.2-111.jar
+```
+
+What it asserts, all six of them against the live server:
+
+1. the jar is a loadable plugin at all — `plugin.yml` parses, `main:` names a
+   class that is actually in the jar, and this server accepts its
+   `api-version`;
+2. `onEnable()` completes without throwing (no `Error occurred while enabling`,
+   no `Could not load plugin`);
+3. every expected command is REGISTERED in the live command map — typing it
+   does not come back `Unknown or incomplete command`;
+4. none of those commands throws an unhandled exception when invoked;
+5. the plugin appears in the server's own `plugins` listing;
+6. `onDisable()` runs and the server exits 0 after `stop`.
+
+### Verified, not assumed
+
+Run against Paper `paper-26.2-111.jar` (SHA-256 `3ec81e3ea50cc6090b94aab024491846a202702e8a874308a5d7510f6b3aa012`,
+from <https://fill.papermc.io/v3/projects/paper>), which reports
+`Implementing API version 26.2.build.111-stable` — an exact match for this
+repo's `paperApiVersion`:
+
+```
+paperBootTest: HelloWorld loaded, enabled, 0 expected command(s) registered (0 from plugin.yml, 0 registered at runtime), and shut down cleanly on a real Paper server.
+```
+
+The full console transcript is written to `build/paper-boot/paper-boot-test.log`
+on every run, pass or fail, and it was read rather than trusting
+`BUILD SUCCESSFUL` — that habit is what caught the harness defects listed
+below.
+
+This repo is where the harness was written and validated before being copied to the other eight Gradle plugins. HelloWorld declares no commands at all, so check 3 has nothing to assert here — the run is a genuine end-to-end exercise of load → enable → `plugins` listing → clean shutdown, and nothing more. The harness was validated in **both** directions on this repo:
+
+- positive: the summary line above;
+- negative: with a deliberately bogus `extra["paperBootExpectedCommands"] = listOf("definitely-not-registered")` the run failed with `command "definitely-not-registered" is expected but the live server does not know it - never registered`;
+- skip: with no `-PpaperServerJar` it prints `paperBootTest SKIPPED (this is a skip, not a pass)`.
+
+Three separate ways this task could have passed *vacuously* were found and closed before it was trusted anywhere:
+
+1. **The unknown-command detector could never fire.** Paper does not answer an unrecognised command with one `Unknown command: x` line; it answers with two — `Unknown or incomplete command. See below for error` and then a bare echo `<input><--[HERE]`. A single-line match for both the phrase and the command name can never succeed, so check 3 would have passed for every plugin forever. The parser now reads the pair, and **self-tests itself** on a deliberately bogus command: if that is not flagged, the run fails loudly instead of reporting a meaningless pass.
+2. **ANSI escapes.** The Paper console is colour-coded even when piped, so every string match had to happen on stripped text. The naive strip pattern then ate the `[H` out of `<--[HERE]` — the exact text check 3 reads — so the pattern is anchored on the ESC byte.
+3. **Command-name case.** Found by the harness failing on the sibling `EpicFurnaces`, whose `plugin.yml` declares `EpicFurnaces:`. Bukkit registers the label lowercased and Paper's Brigadier console dispatch is case-sensitive, so the declared spelling comes back `Unknown or incomplete command` while `epicfurnaces` works. Sending the declared spelling would report a false "never registered" for every capitalised declaration; helpers-version 3 sends the lowercase label. (Confirmed by hand on a live server before changing anything — see `EpicFurnaces/PLAN.md`.)
+4. **`extra` read at configuration time.** The expected-command list was read the moment `apply(from = ...)` ran, so an `extra[...] = listOf(...)` written *below* the apply line was invisible and the task reported "0 expected commands" and passed. Found by running the negative control rather than assuming the fix worked. The read is now deferred with `provider { }`.
+
+### Opt-in, and a skip is not a pass
+
+The task is deliberately **not** wired into `check`, and the ~60 MB server jar
+is never committed: without `-PpaperServerJar=` (or `PAPER_SERVER_JAR=`) the
+task prints `paperBootTest SKIPPED (this is a skip, not a pass)` and explains
+where to get a jar. A fresh offline clone still builds.
+
+### What Tier 2 does *not* cover
+
+- Commands declared under `commands:` in `plugin.yml` are registered by Bukkit
+  *from the yml*, before the plugin gets a vote — for those, check 3 proves the
+  yml parsed and the server accepted it, not that the plugin wired anything up.
+  It earns its keep on commands registered programmatically at runtime.
+- Commands are invoked from the **console** with no arguments. A "players only"
+  or usage reply is a pass: the assertion is "the server knows this command and
+  running it did not throw", not "the command did its job".
+- Commands are sent lowercase, the only spelling the server registers.
+- No player ever joins. No gameplay behaviour, event handler, GUI or
+  persistence path is exercised. That is Tier 3 work and is not attempted.
+- One server, one Minecraft version. This says nothing about older API targets.

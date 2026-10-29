@@ -187,7 +187,7 @@ exclusions.
   `workflow` OAuth scope on 2026-08-13; earlier notes in this repo saying it
   lacks that scope are obsolete. No CI YAML needs to be parked in a scratchpad
   any more.
-- Commits authored as `Bert Shuler <BertShuler@proton.me>`, signed via the
+- Commits authored as the repo's configured git identity, signed via the
   1Password SSH agent. If signing fails with no human at the keyboard, the
   prepared commit message goes to the session scratchpad instead of being
   force-committed unsigned.
